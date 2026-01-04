@@ -1,8 +1,7 @@
-# Database (Importante não subir o banco de dados local com dados de teste)
+# Database 
 *.db
 *.sqlite3
 
-# Segredos
 .env
 token.txt
 

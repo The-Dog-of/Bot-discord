@@ -98,8 +98,6 @@ async def tarefa(ctx, data_hora, *, descricao):
     bot.conn.commit()
     await ctx.send(f"✅ Ok {ctx.author.mention}, vou te lembrar disso em {data_hora}!")
 
-    # ... (mantenha o início do código anterior com o TaskBot e a tabela de tarefas)
-
     def create_table(self):
         # Tabela de tarefas
         self.cursor.execute('''
