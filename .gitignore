@@ -1,0 +1,11 @@
+# Database (Importante não subir o banco de dados local com dados de teste)
+*.db
+*.sqlite3
+
+# Segredos
+.env
+token.txt
+
+# Sistema
+.DS_Store
+Thumbs.db
