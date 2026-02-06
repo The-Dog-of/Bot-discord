@@ -16,26 +16,25 @@ class AIFeatures(commands.Cog):
             self.model = genai.GenerativeModel('gemini-pro')
         else:
             self.model = None
-            print("⚠️ AVISO: GEMINI_API_KEY não encontrada no .env")
 
     @commands.command()
-    async def pergunte(self, ctx, *, q):
+    async def ask(self, ctx, *, question):
+        """Ask Gemini AI something"""
         if not self.model: 
-            return await ctx.send("❌ IA não configurada. Verifique o arquivo .env")
+            return await ctx.send("❌ AI not configured.")
         
         async with ctx.typing():
             try:
-                # Executa em thread separada para não travar o bot
-                res = await asyncio.to_thread(self.model.generate_content, q)
+                res = await asyncio.to_thread(self.model.generate_content, question)
+                text = res.text
+                if len(text) > 4000:
+                    text = text[:4000] + "..."
                 
-                # Tratamento para respostas longas (limite do Discord é 4096 no embed)
-                texto = res.text
-                if len(texto) > 4000:
-                    texto = texto[:4000] + "... (resposta cortada por limite)"
-                    
-                await ctx.send(embed=discord.Embed(description=texto, color=discord.Color.teal()))
+                embed = discord.Embed(description=text, color=discord.Color.teal())
+                embed.set_footer(text="Powered by Google Gemini")
+                await ctx.send(embed=embed)
             except Exception as e: 
-                await ctx.send(f"Erro na IA: {e}")
+                await ctx.send(f"⚠️ AI Error: {e}")
 
 async def setup(bot):
     await bot.add_cog(AIFeatures(bot))
