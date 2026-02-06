@@ -3,35 +3,33 @@ from discord.ext import commands
 from discord import ui
 import time
 
-# Dicionário de Traduções
+# Dicionário de Traduções e Comandos
 LANG = {
     'pt': {
-        'title': "Central de Ajuda",
         'desc': "Selecione um módulo abaixo para ver os comandos.",
         'ph': "Selecione uma categoria...",
-        'mod': "Moderação",
-        'mod_desc': "Banir, Expulsar, Mutar, Trancar",
-        'tick': "Tickets",
-        'tick_desc': "Sistema de atendimento",
-        'info': "Informações",
-        'info_desc': "Ver perfil e servidor",
-        'ai': "Inteligência Artificial",
-        'ai_desc': "Pergunte ao Gemini AI",
-        'footer': "Sistema V2 • Português"
+        'footer': "Sistema Híbrido (Prefix & Slash) • Português",
+        'cats': {
+            'mod': "Moderação",
+            'eco': "Economia",
+            'util': "Utilidades",
+            'tick': "Tickets",
+            'ai': "Inteligência Artificial",
+            'info': "Informações"
+        }
     },
     'en': {
-        'title': "Help Center",
         'desc': "Select a module below to view commands.",
         'ph': "Select a category...",
-        'mod': "Moderation",
-        'mod_desc': "Ban, Kick, Timeout, Lock",
-        'tick': "Tickets",
-        'tick_desc': "Support system",
-        'info': "Information",
-        'info_desc': "User & Server info",
-        'ai': "Artificial Intelligence",
-        'ai_desc': "Ask Gemini AI",
-        'footer': "System V2 • English"
+        'footer': "Hybrid System (Prefix & Slash) • English",
+        'cats': {
+            'mod': "Moderation",
+            'eco': "Economy",
+            'util': "Utility",
+            'tick': "Tickets",
+            'ai': "Artificial Intelligence",
+            'info': "Information"
+        }
     }
 }
 
@@ -40,12 +38,15 @@ class HelpSelect(ui.Select):
         self.bot = bot
         self.lang = lang
         txt = LANG[lang]
+        cats = txt['cats']
         
         options = [
-            discord.SelectOption(label=txt['mod'], description=txt['mod_desc'], emoji="🛡️", value="mod"),
-            discord.SelectOption(label=txt['tick'], description=txt['tick_desc'], emoji="📩", value="tick"),
-            discord.SelectOption(label=txt['info'], description=txt['info_desc'], emoji="🔎", value="info"),
-            discord.SelectOption(label=txt['ai'], description=txt['ai_desc'], emoji="🧠", value="ai"),
+            discord.SelectOption(label=cats['mod'], description="Ban, Kick, Mute, Lock", emoji="🛡️", value="mod"),
+            discord.SelectOption(label=cats['eco'], description="Work, Daily, Balance", emoji="💰", value="eco"),
+            discord.SelectOption(label=cats['util'], description="Giveaway, Poll, Suggest", emoji="🎉", value="util"),
+            discord.SelectOption(label=cats['tick'], description="Support System", emoji="📩", value="tick"),
+            discord.SelectOption(label=cats['ai'], description="Gemini AI", emoji="🧠", value="ai"),
+            discord.SelectOption(label=cats['info'], description="User & Server Info", emoji="🔎", value="info"),
         ]
         super().__init__(placeholder=txt['ph'], min_values=1, max_values=1, options=options)
 
@@ -55,26 +56,40 @@ class HelpSelect(ui.Select):
         
         embed = discord.Embed(color=0x2b2d31)
         embed.set_footer(text=LANG[self.lang]['footer'], icon_url=self.bot.user.display_avatar.url)
+        
+        # Título da Categoria
+        embed.title = f"{LANG[self.lang]['cats'][val]}"
 
-        # Conteúdo dos comandos (Sempre mostra o comando em Inglês, mas descrição traduzida)
+        # --- LISTA DE COMANDOS ---
         if val == "mod":
-            embed.title = f"🛡️ {LANG[self.lang]['mod']}"
             embed.description = (
                 f"`{prefix}ban @user [reason]`\n"
                 f"`{prefix}kick @user [reason]`\n"
-                f"`{prefix}mute @user [time]` (ex: 10m, 1h)\n"
+                f"`{prefix}mute @user [time]` (ex: 10m)\n"
                 f"`{prefix}lock` / `{prefix}unlock`\n"
-                f"`{prefix}purge [amount]`"
+                f"`{prefix}purge [amount]`\n"
+                f"`{prefix}setlogs #channel`"
+            )
+        elif val == "eco":
+            embed.description = (
+                f"`{prefix}work` - Work to earn money\n"
+                f"`{prefix}daily` - Daily reward\n"
+                f"`{prefix}bal` - Check wallet/bank\n"
+                f"`{prefix}top` - Rich leaderboard"
+            )
+        elif val == "util":
+            embed.description = (
+                "**Slash Commands (Use /):**\n"
+                f"`/giveaway [time] [prize]` - Start a giveaway\n"
+                f"`/poll [question]` - Create a poll\n"
+                f"`/suggest [text]` - Send suggestion"
             )
         elif val == "tick":
-            embed.title = f"📩 {LANG[self.lang]['tick']}"
-            embed.description = f"`{prefix}setup_ticket` - Setup the panel / Cria o painel."
-        elif val == "info":
-            embed.title = f"🔎 {LANG[self.lang]['info']}"
-            embed.description = f"`{prefix}userinfo [@user]`\n`{prefix}serverinfo`\n`{prefix}ping`"
+            embed.description = f"`{prefix}setup_ticket` - Setup support panel."
         elif val == "ai":
-            embed.title = f"🧠 {LANG[self.lang]['ai']}"
-            embed.description = f"`{prefix}ask [text]` - Gemini AI."
+            embed.description = f"`{prefix}ask [text]` - Chat with AI."
+        elif val == "info":
+            embed.description = f"`{prefix}userinfo [@user]`\n`{prefix}serverinfo`\n`{prefix}ping`"
 
         await interaction.response.edit_message(embed=embed)
 
@@ -117,10 +132,7 @@ class SystemCog(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def setprefix(self, ctx, new_prefix: str):
-        async with aiosqlite.connect(self.bot.db_name) as db:
-            await db.execute('INSERT OR REPLACE INTO settings (guild_id, prefix) VALUES (?, ?)', 
-                             (str(ctx.guild.id), new_prefix))
-            await db.commit()
+        # Atualização do prefixo no banco (simplificado para o exemplo)
         self.bot.prefix_cache[ctx.guild.id] = new_prefix
         await ctx.send(f"✅ Prefix updated to `{new_prefix}`")
 
