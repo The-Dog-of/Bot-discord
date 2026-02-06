@@ -1,7 +1,8 @@
 import discord
 from discord.ext import commands
+from discord import app_commands # Necessário para descrições dos parâmetros
 import aiosqlite
-from datetime import timedelta, datetime
+from datetime import timedelta
 
 class Moderation(commands.Cog):
     def __init__(self, bot):
@@ -15,7 +16,8 @@ class Moderation(commands.Cog):
             ch = guild.get_channel(int(res[0]))
             if ch: await ch.send(embed=embed)
 
-    @commands.command()
+    @commands.hybrid_command(name="setlogs", description="Define the channel for logs")
+    @app_commands.describe(channel="Channel to send logs to")
     @commands.has_permissions(administrator=True)
     async def setlogs(self, ctx, channel: discord.TextChannel):
         async with aiosqlite.connect(self.bot.db_name) as db:
@@ -24,58 +26,51 @@ class Moderation(commands.Cog):
             await db.commit()
         await ctx.send(f"📝 Logs channel set to {channel.mention}")
 
-    @commands.command()
+    @commands.hybrid_command(name="ban", description="Ban a user")
+    @app_commands.describe(member="User to ban", reason="Reason for ban")
+    @commands.has_permissions(ban_members=True)
+    async def ban(self, ctx, member: discord.Member, *, reason: str = "No reason"):
+        await member.ban(reason=reason)
+        embed = discord.Embed(title="🔨 Banned", description=f"**User:** {member}\n**Reason:** {reason}", color=discord.Color.red())
+        await ctx.send(embed=embed)
+        await self.log_action(ctx.guild, embed)
+
+    @commands.hybrid_command(name="kick", description="Kick a user")
+    @commands.has_permissions(kick_members=True)
+    async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason"):
+        await member.kick(reason=reason)
+        embed = discord.Embed(title="👢 Kicked", description=f"**User:** {member}\n**Reason:** {reason}", color=discord.Color.orange())
+        await ctx.send(embed=embed)
+        await self.log_action(ctx.guild, embed)
+
+    @commands.hybrid_command(name="mute", description="Timeout/Mute a user (ex: 10m, 1h)")
+    @app_commands.describe(time="Duration (e.g., 10m, 1h)", reason="Reason")
     @commands.has_permissions(moderate_members=True)
-    async def mute(self, ctx, member: discord.Member, time_str: str, *, reason="No reason provided"):
-        """Timeout a user (e.g. !mute @user 10m)"""
-        unit = time_str[-1]
-        val = int(time_str[:-1])
-        delta = None
+    async def mute(self, ctx, member: discord.Member, time: str, *, reason: str = "No reason"):
+        unit = time[-1]
+        try: val = int(time[:-1])
+        except: return await ctx.send("❌ Use format: 10m, 1h", ephemeral=True)
         
+        delta = None
         if unit == 'm': delta = timedelta(minutes=val)
         elif unit == 'h': delta = timedelta(hours=val)
         elif unit == 'd': delta = timedelta(days=val)
-        else: return await ctx.send("❌ Use format: `10m`, `2h`, `1d`.")
+        else: return await ctx.send("❌ Units: m, h, d", ephemeral=True)
 
         await member.timeout(delta, reason=reason)
-        await ctx.send(f"🤐 **{member}** muted for `{time_str}`.")
-        
-        embed = discord.Embed(title="🤐 User Muted", color=discord.Color.light_grey())
-        embed.add_field(name="User", value=f"{member} ({member.id})")
-        embed.add_field(name="Time", value=time_str)
-        embed.add_field(name="Reason", value=reason)
+        embed = discord.Embed(title="🤐 Muted", description=f"**User:** {member}\n**Time:** {time}", color=discord.Color.dark_grey())
+        await ctx.send(embed=embed)
         await self.log_action(ctx.guild, embed)
 
-    @commands.command()
-    @commands.has_permissions(manage_channels=True)
-    async def lock(self, ctx):
-        await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
-        await ctx.send("🔒 **Channel Locked.**")
-
-    @commands.command()
-    @commands.has_permissions(manage_channels=True)
-    async def unlock(self, ctx):
-        await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
-        await ctx.send("🔓 **Channel Unlocked.**")
-
-    @commands.command()
-    @commands.has_permissions(ban_members=True)
-    async def ban(self, ctx, member: discord.Member, *, reason="N/A"):
-        await member.ban(reason=reason)
-        await ctx.send(f"🔨 **{member}** has been banned.")
-        
-        embed = discord.Embed(title="🔨 User Banned", color=discord.Color.red())
-        embed.add_field(name="User", value=f"{member} ({member.id})")
-        embed.add_field(name="Moderator", value=ctx.author.mention)
-        embed.add_field(name="Reason", value=reason)
-        await self.log_action(ctx.guild, embed)
-
-    @commands.command()
+    @commands.hybrid_command(name="purge", description="Delete messages")
     @commands.has_permissions(manage_messages=True)
     async def purge(self, ctx, amount: int):
         if amount > 100: amount = 100
-        await ctx.channel.purge(limit=amount+1)
-        msg = await ctx.send(f"🧹 Cleared **{amount}** messages.", delete_after=3)
+        # Defer serve para avisar que vai demorar (Slash) ou mostrar digitando (Texto)
+        await ctx.defer(ephemeral=True) 
+        deleted = await ctx.channel.purge(limit=amount)
+        # No Slash isso responde só pra você, no texto manda no chat normal
+        await ctx.send(f"🧹 Deleted {len(deleted)} messages.", ephemeral=True, delete_after=5)
 
 async def setup(bot):
     await bot.add_cog(Moderation(bot))
